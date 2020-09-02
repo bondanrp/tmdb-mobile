@@ -174,7 +174,12 @@ export default function App() {
 						<View style={styles.modalView}>
 							<View style={styles.modal}>
 								<View style={styles.modalContent}>
-									<Text style={styles.modalTitle}>{state.selected.original_title}</Text>
+									<View style={styles.modalTitleRating}>
+										<Text style={styles.modalTitle}>{state.selected.original_title}</Text>
+										<Text style={styles.modalSubtext}>
+											{state.selected.vote_average ? state.selected.vote_average : '-'}/10 ⭐
+										</Text>
+									</View>
 									<Text style={styles.modalSubtext}>
 										📅{' '}
 										{state.selected.release_date ? state.selected.release_date.split('-')[0] : '-'}
@@ -205,7 +210,7 @@ export default function App() {
 														? val.name + ', '
 														: val.name;
 											  })
-											: ''}
+											: '-'}
 									</Text>
 								</View>
 							</View>
@@ -220,7 +225,7 @@ export default function App() {
 					</View>
 				</View>
 			</Modal>
-			<StatusBar barStyle="dark-content" hidden={false} backgroundColor="#9932CC" translucent={true} />
+			<StatusBar barStyle="light-content" hidden={false} backgroundColor="#000" translucent={true} />
 		</View>
 	);
 }

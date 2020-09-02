@@ -122,7 +122,6 @@ export default styles = StyleSheet.create({
 	modalTitle: {
 		fontSize: 30,
 		fontWeight: 'bold',
-		marginBottom: 20,
 	},
 	modalSubtitle: {
 		marginTop: 7,
@@ -151,5 +150,10 @@ export default styles = StyleSheet.create({
 		padding: 20,
 		elevation: 20,
 		borderRadius: 10,
+	},
+	modalTitleRating: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		alignItems: 'center',
 	},
 });
