@@ -1,7 +1,7 @@
 import { StatusBar } from 'expo-status-bar';
 import React, { useState } from 'react';
+import styles from './styles';
 import {
-	StyleSheet,
 	Text,
 	View,
 	TextInput,
@@ -11,6 +11,7 @@ import {
 	Modal,
 	ImageBackground,
 	ScrollView,
+	ActivityIndicator,
 } from 'react-native';
 import axios from 'axios';
 
@@ -21,25 +22,48 @@ export default function App() {
 		searchFor: '',
 		results: [],
 		selected: {},
+		typing: false,
+		page: 1,
+		loading: false,
 	});
 
+	const handleBackButtonClick = () => {
+		setState((prevState) => {
+			return { ...prevState, loading: false, selected: {} };
+		});
+		return true;
+	};
+
 	const search = () => {
-		axios(apiUrl + 'search/movie' + apiKey + '&query=' + state.searchFor + '&page=1').then((res) => {
+		setState((prevState) => {
+			return { ...prevState, loading: true };
+		});
+		axios(apiUrl + 'search/movie' + apiKey + '&query=' + state.searchFor + '&page=' + 1).then((res) => {
 			setState((prevState) => {
-				return { ...prevState, results: res.data.results };
+				return { ...prevState, page: 1, loading: false, typing: false, results: res.data.results };
+			});
+		});
+	};
+	const loadMore = () => {
+		const newPage = state.page + 1;
+		axios(apiUrl + 'search/movie' + apiKey + '&query=' + state.searchFor + '&page=' + newPage).then((res) => {
+			setState((prevState) => {
+				return { ...prevState, page: prevState.page + 1, results: [...state.results, ...res.data.results] };
 			});
 		});
 	};
 	const clear = () => {
 		setState(() => {
-			return { searchFor: '', results: [], selected: {} };
+			return { searchFor: '', results: [], selected: {}, typing: false, page: 1, loading: false };
 		});
 	};
 	const moreInfo = (result) => {
+		setState((prevState) => {
+			return { ...prevState, loading: true };
+		});
 		axios(apiUrl + 'movie/' + result.id + apiKey).then((res) => {
-			console.log(res.data);
 			setState((prevState) => {
-				return { ...prevState, selected: res.data };
+				return { ...prevState, loading: false, selected: res.data };
 			});
 		});
 	};
@@ -61,11 +85,18 @@ export default function App() {
 					style={styles.result}
 					key={result.id}
 				>
-					<Image
-						style={styles.posters}
-						source={{ uri: `https://image.tmdb.org/t/p/original${result.poster_path}` }}
-						resizeMode="cover"
-					/>
+					{result.poster_path ? (
+						<Image
+							style={styles.posters}
+							source={{ uri: `https://image.tmdb.org/t/p/original${result.poster_path}` }}
+							resizeMode="cover"
+						/>
+					) : (
+						<View style={styles.notAvailable}>
+							<Text>No Poster</Text>
+							<Text>Available</Text>
+						</View>
+					)}
 					<Text style={styles.resultTitle}>{result.original_title}</Text>
 					<Text style={styles.resultYear}>
 						{result.release_date ? result.release_date.split('-')[0] : ''}
@@ -74,18 +105,6 @@ export default function App() {
 			);
 		}
 	};
-	const formatData = (data, numColumns) => {
-		const numberOfFullRows = Math.floor(data.length / numColumns);
-
-		let numberOfElementsLastRow = data.length - numberOfFullRows * numColumns;
-		while (numberOfElementsLastRow !== numColumns && numberOfElementsLastRow !== 0) {
-			data.push({ key: `blank-${numberOfElementsLastRow}`, empty: true });
-			numberOfElementsLastRow++;
-		}
-
-		return data;
-	};
-
 	return (
 		<View style={styles.container}>
 			<View style={styles.title}>
@@ -96,7 +115,7 @@ export default function App() {
 					value={state.searchFor}
 					onChangeText={(text) => {
 						setState((prevState) => {
-							return { ...prevState, searchFor: text };
+							return { ...prevState, typing: true, searchFor: text };
 						});
 					}}
 					placeholder="Enter a movie title..."
@@ -113,24 +132,32 @@ export default function App() {
 				state.results.length > 1 ? (
 					<FlatList
 						numColumns="3"
-						data={formatData(state.results, 3)}
+						data={state.results}
 						style={styles.results}
 						renderItem={renderItems}
+						initialNumToRender={6}
+						onEndReachedThreshold={5}
+						onEndReached={loadMore}
 					></FlatList>
+				) : state.typing ? (
+					<View style={styles.noContent}>
+						<Text>Start searching for movies!</Text>
+					</View>
 				) : (
 					<View style={styles.noContent}>
-						<Text>We have found 0 movie title that contains {state.searchFor}</Text>
+						<Text>We could not find a movie title that contains "{state.searchFor}"</Text>
 					</View>
 				)
 			) : (
 				<View style={styles.noContent}>
-					<Text>Start searching for movie details!</Text>
+					<Text>Start searching for movies!</Text>
 				</View>
 			)}
 			<Modal
 				animationType="slide"
 				transparent={false}
 				visible={typeof state.selected.original_title !== 'undefined' ? true : false}
+				onRequestClose={handleBackButtonClick}
 			>
 				<ImageBackground
 					style={styles.backdrop}
@@ -186,141 +213,14 @@ export default function App() {
 					</ScrollView>
 				</ImageBackground>
 			</Modal>
+			<Modal animationType="fade" transparent visible={state.loading} onRequestClose={handleBackButtonClick}>
+				<View style={styles.loadingModal}>
+					<View style={styles.spinner}>
+						<ActivityIndicator size="large" color="#000" />
+					</View>
+				</View>
+			</Modal>
 			<StatusBar barStyle="dark-content" hidden={false} backgroundColor="#9932CC" translucent={true} />
 		</View>
 	);
 }
-
-const styles = StyleSheet.create({
-	container: {
-		flex: 1,
-		alignItems: 'center',
-		justifyContent: 'flex-start',
-	},
-	title: {
-		paddingTop: 70,
-		paddingHorizontal: 20,
-		paddingBottom: 10,
-		backgroundColor: '#000',
-		alignItems: 'flex-start',
-		justifyContent: 'flex-start',
-		width: '100%',
-	},
-	titleText: {
-		fontSize: 32,
-		color: '#fff',
-	},
-	searchBar: {
-		height: 40,
-		flexDirection: 'row',
-		alignItems: 'center',
-		justifyContent: 'space-between',
-	},
-	searchText: {
-		fontSize: 20,
-		padding: 10,
-		backgroundColor: '#fff',
-		flex: 9,
-	},
-	cancelType: {
-		justifyContent: 'center',
-		alignItems: 'center',
-		width: '100%',
-		height: '100%',
-		flex: 1,
-		color: '#000',
-	},
-	noContent: {
-		backgroundColor: '#e6e6e6',
-		height: '100%',
-		width: '100%',
-		alignItems: 'center',
-		justifyContent: 'center',
-	},
-	resultsContainer: {
-		flex: 1,
-		height: '100%',
-	},
-	results: {
-		backgroundColor: '#e6e6e6',
-		width: '100%',
-	},
-	result: {
-		flex: 1,
-		minHeight: 250,
-		backgroundColor: '#fff',
-		margin: 5,
-		width: '100%',
-		elevation: 5,
-	},
-	resultInvis: {
-		backgroundColor: 'transparent',
-		elevation: 0,
-	},
-	resultTitle: {
-		fontWeight: 'bold',
-		paddingHorizontal: 10,
-	},
-	resultYear: {
-		fontWeight: '100',
-		paddingHorizontal: 10,
-	},
-	posters: { width: '100%', height: 200 },
-	backdrop: {
-		flex: 1,
-		resizeMode: 'cover',
-		height: '100%',
-		justifyContent: 'center',
-		alignItems: 'center',
-	},
-	modalScroll: { height: '100%', width: '100%' },
-	modalView: {
-		alignItems: 'center',
-		justifyContent: 'center',
-		height: 900,
-	},
-	modal: {
-		width: '90%',
-		backgroundColor: '#fff',
-		minHeight: 300,
-		elevation: 5,
-		borderRadius: 5,
-	},
-	closeContainer: {
-		height: 60,
-		justifyContent: 'center',
-		alignItems: 'flex-start',
-		width: '100%',
-	},
-	closeButton: {
-		color: '#fff',
-		fontSize: 32,
-		marginLeft: 20,
-		textShadowOffset: { width: 1, height: 1 },
-		textShadowRadius: 5,
-		textShadowColor: '#000',
-	},
-	modalContent: {
-		padding: 20,
-	},
-	modalTitle: {
-		fontSize: 30,
-		fontWeight: 'bold',
-		marginBottom: 20,
-	},
-	modalSubtitle: {
-		marginTop: 7,
-		marginBottom: 3,
-		fontSize: 20,
-		fontWeight: '100',
-		color: '#23272A',
-	},
-	modalText: {
-		fontSize: 11,
-		textAlign: 'justify',
-	},
-	modalSubtext: {
-		fontSize: 15,
-		marginVertical: 12,
-	},
-});
